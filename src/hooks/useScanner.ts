@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { scanWebsite, getReport, getRecentScans } from '../services/api';
 import type { ScanResult } from '../types';
 
-// Define a type that includes possible scanId/id fields
-type ScanIdentifier = { scanId?: string; id?: string };
-
 export const useScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,46 +18,44 @@ export const useScanner = () => {
       setResult(scanResult);
 
       // Use id or scanId as identifier
-      const identifier =
-        (scanResult as ScanIdentifier).scanId ||
-        (scanResult as ScanIdentifier).id;
-      let currentResult = { ...scanResult, identifier } as ScanResult & {
-        status?: string;
-        identifier?: string;
-      };
+      const identifier = scanResult.scanId || scanResult.id;
+      let currentResult: ScanResult = { ...scanResult, identifier };
+
       const pollInterval = 3000; // 3 seconds
+      const maxAttempts = 100;   // ~5 minutes at 3s interval
+      let attempts = 0;
 
       if (!currentResult || !currentResult.identifier) {
         throw new Error('Scan did not return a valid scan identifier.');
       }
       if (!currentResult.status) {
         // If status is missing, try to fetch the report once
-        const fetched = (await getReport(currentResult.identifier)) as ScanResult & {
-          status?: string;
-          identifier?: string;
-        };
+        const fetched = await getReport(currentResult.identifier);
         setResult(fetched);
         return fetched;
       }
 
-      // Poll until scan is completed
+      // Poll until scan is completed, or until we time out
       while (currentResult.status === 'in_progress') {
+        if (attempts++ >= maxAttempts) {
+          throw new Error('Scan timed out. Please try again.');
+        }
+
         await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
         if (!currentResult.identifier) {
           throw new Error('Scan identifier is missing during polling.');
         }
-        const updatedReport = (await getReport(currentResult.identifier)) as ScanResult & {
-          status?: string;
-          identifier?: string;
-        };
+
+        const updatedReport = await getReport(currentResult.identifier);
         console.log('Polled report:', updatedReport);
         setResult(updatedReport);
+
         currentResult = {
           ...updatedReport,
-          identifier:
-            (updatedReport as ScanIdentifier).scanId ||
-            (updatedReport as ScanIdentifier).id,
+          identifier: updatedReport.scanId || updatedReport.id,
         };
+
         if (!currentResult.status) break;
       }
 
