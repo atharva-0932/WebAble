@@ -134,6 +134,21 @@ export const getScanReport = async (id: string): Promise<ScanResult> => {
   }
 };
 
+export const deleteScans = async (ids: string[]): Promise<{ deleted: number }> => {
+  try {
+    const response = await api.delete('/scans/delete', { data: { ids } });
+    return response.data;
+  } catch (error: unknown) {
+    console.error('Delete Scans Error:', error);
+    const apiError = error as ApiError;
+    const errorMessage = 
+      apiError.response?.data?.error || 
+      apiError.response?.data?.message || 
+      'Failed to delete scans. Please try again later.';
+    throw new Error(errorMessage);
+  }
+};
+
 // Health check function
 export const checkHealth = async (): Promise<boolean> => {
   try {

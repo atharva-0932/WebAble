@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { captureEvent } from '../utils/posthog/helpers';
-import { EVENTS } from '../utils/posthog/events';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -13,6 +11,7 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
+import { getReports, deleteScans } from '../services/api';
 
 // Define Scan type to match your backend response
 type Scan = {
@@ -37,22 +36,17 @@ const HistoryPage = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedScans, setSelectedScans] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
   // Fetch scan history from backend
   const fetchScanHistory = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Use the correct endpoint that exists in your backend
-      const response = await fetch('http://localhost:5000/api/reports?limit=50');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch scan history: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await getReports(50, 0);
       
       // Transform the data to match our Scan type
-      const transformedData: Scan[] = data.map((scan: {
+      const rawScans = data as unknown as Array<{
         id?: string;
         _id?: string;
         url: string;
@@ -68,7 +62,8 @@ const HistoryPage = () => {
           issues?: unknown[];
         };
         status?: 'completed' | 'failed' | 'pending';
-      }) => ({
+      }>;
+      const transformedData: Scan[] = rawScans.map((scan) => ({
         id: scan.id || scan._id,
         url: scan.url,
         // Parse date as-is (assume backend returns UTC ISO string)
@@ -93,18 +88,7 @@ const HistoryPage = () => {
   // Delete scans from backend
   const deleteScansFromBackend = async (scanIds: string[]) => {
     try {
-      const response = await fetch('http://localhost:5000/api/scans/delete', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ids: scanIds }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete scans from server');
-      }
-      
+      await deleteScans(scanIds);
       return true;
     } catch (err) {
       console.error('Error deleting scans:', err);
@@ -127,14 +111,7 @@ const HistoryPage = () => {
 
   // Handle search
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    if (value.length > 2) {
-      captureEvent(EVENTS.HISTORY_SEARCHED, {
-        search_term: value,
-        result_count: scanHistory.filter(s => s.url.toLowerCase().includes(value.toLowerCase())).length,
-      });
-    }
+    setSearchTerm(e.target.value);
   };
 
   // Toggle sort order
@@ -170,7 +147,6 @@ const HistoryPage = () => {
     const success = await deleteScansFromBackend(selectedScans);
     
     if (success) {
-      captureEvent(EVENTS.HISTORY_SCANS_DELETED, { deleted_count: selectedScans.length });
       // Remove from local state
       setScanHistory(prev => prev.filter(scan => !selectedScans.includes(scan.id)));
       setSelectedScans([]);
