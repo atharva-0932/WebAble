@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Clock, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from "date-fns";
+import { getRecentScans } from '../services/api';
 
 type Scan = {
   _id: string;
@@ -26,17 +27,8 @@ const RecentScansSection = () => {
   useEffect(() => {
     const fetchRecentScans = async () => {
       try {
-        // Import the API function at the top of file
-        // import { getRecentScans } from '../services/api';
-        const data = await fetch('http://localhost:5000/api/recent-scans')
-          .then(res => {
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            return res.json();
-          });
-        
-
-        
-        setRecentScans(data);
+        const data = await getRecentScans(5);
+        setRecentScans(data as unknown as Scan[]);
       } catch (err) {
         console.error("Error fetching recent scans:", err);
         // You can add toast notification here
