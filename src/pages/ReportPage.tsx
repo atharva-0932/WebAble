@@ -13,6 +13,7 @@ import {
   AiOutlineUp,
 } from "react-icons/ai";
 import { useScanner } from "../hooks/useScanner";
+import { WCAGBadge } from "../components/WCAGBadge";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -222,6 +223,9 @@ const CollapsibleSection: React.FC<{
                     <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${config.badgeClass}`}>
                       {(issue.impact || severity).toUpperCase()}
                     </span>
+                    {"wcagCriteria" in issue && (
+                      <WCAGBadge criteria={issue.wcagCriteria} />
+                    )}
                   </div>
 
                   <p className={`text-sm leading-relaxed mb-3 ${config.textClass}`}>
